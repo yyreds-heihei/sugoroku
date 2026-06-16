@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>認知症予防すごろく</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+  min-height: 100vh; overflow-x: hidden;
+  background: #87ceeb;
+}
+
+#landscape-bg {
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+}
+
+/* ===== スタート ===== */
+#screen-start {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100vh; padding: 40px 24px; text-align: center;
+}
+.start-card {
+  background: rgba(255,255,255,0.93);
+  border-radius: 28px; padding: 36px 32px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  max-width: 520px; width: 100%;
+}
+.start-card h1 { font-size: 44px; font-weight: bold; color: #2d5a27; margin-bottom: 8px; line-height: 1.2; }
+.start-card .subtitle { font-size: 22px; color: #666; margin-bottom: 24px; }
+.start-info p { font-size: 20px; color: #333; margin-bottom: 10px; line-height: 1.6; }
+.start-info p:last-child { margin-bottom: 0; }
+
+/* ===== ゲーム画面 ===== */
+#screen-game { display: none; position: relative; z-index: 10; padding: 10px 10px 24px; min-height: 100vh; }
+
+.game-header {
+  background: rgba(45,90,39,0.92); color: #fff;
+  border-radius: 16px; padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; backdrop-filter: blur(4px);
+}
+.game-header h2 { font-size: 20px; font-weight: bold; }
+.game-header .turn-info { font-size: 18px; }
+
+.score-bar {
+  background: rgba(255,255,255,0.88);
+  border-radius: 14px; padding: 8px 12px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px; backdrop-filter: blur(4px);
+}
+.score-bar .item { font-size: 16px; color: #333; }
+.score-bar .item strong { color: #2d5a27; font-size: 19px; }
+
+.progress-wrap { margin-bottom: 10px; }
+.progress-bar { background: rgba(255,255,255,0.5); border-radius: 12px; height: 16px; overflow: hidden; }
+.progress-fill { background: linear-gradient(90deg,#4caf50,#8bc34a); height: 100%; border-radius: 12px; transition: width 0.5s ease; }
+.progress-label { font-size: 14px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5); margin-top: 2px; text-align: right; }
+
+/* ===== ボード ===== */
+.board-wrap {
+  background: rgba(255,255,255,0.82);
+  border-radius: 20px; padding: 10px 6px;
+  margin-bottom: 10px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  overflow-x: auto;
+}
+.board-inner { min-width: 630px; }
+.board-row { display: flex; justify-content: center; gap: 4px; margin-bottom: 4px; }
+.board-row:last-child { margin-bottom: 0; }
+
+.cell {
+  width: 58px; height: 60px;
+  border-radius: 8px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-size: 10px; font-weight: bold;
+  color: #333; text-align: center;
+  border: 2px solid #ccc;
+  position: relative; flex-shrink: 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.cell.start-cell  { background: #c8e6c9; border-color: #4caf50; }
+.cell.goal-cell   { background: #fff9c4; border-color: #f9a825; }
+.cell.ch-word     { background: #e3f2fd; border-color: #1976d2; }
+.cell.ch-illust   { background: #f3e5f5; border-color: #7b1fa2; }
+.cell.ch-math     { background: #fce4ec; border-color: #c2185b; }
+.cell.ch-know     { background: #e8f5e9; border-color: #2e7d32; }
+.cell.bonus-adv   { border-width: 3px; border-color: #e65100; }
+.cell.bonus-back  { border-width: 3px; border-color: #c62828; }
+.cell.bonus-rest  { border-width: 3px; border-color: #37474f; }
+.cell.current {
+  transform: scale(1.15);
+  box-shadow: 0 4px 16px rgba(255,87,34,0.5);
+  border-color: #ff5722 !important; border-width: 3px !important;
+  z-index: 2;
+}
+.cell .cell-icon { font-size: 15px; line-height: 1.2; }
+.cell .cell-tag  { font-size: 7px; color: #555; line-height: 1.2; }
+.cell .cell-num  { font-size: 7px; color: #aaa; }
+.cell .bonus-badge { position: absolute; top: -6px; right: -6px; font-size: 11px; }
+.cell .token {
+  position: absolute; top: -13px; right: -4px;
+  font-size: 22px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+  animation: float 1.5s ease-in-out infinite;
+}
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+
+/* ===== 操作エリア ===== */
+.action-area {
+  background: rgba(255,255,255,0.9);
+  border-radius: 20px; padding: 16px;
+  text-align: center; margin-bottom: 10px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+/* ===== サイコロポップアップ ===== */
+#dice-popup {
+  display: none;
+  position: fixed; inset: 0; z-index: 300;
+  align-items: center; justify-content: center;
+  background-color: rgba(30,60,30,0.72);
+  background-image:
+    linear-gradient(rgba(255,255,255,0.12) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(255,255,255,0.12) 2px, transparent 2px);
+  background-size: 48px 48px;
+  backdrop-filter: blur(2px);
+}
+#dice-popup.show { display: flex; animation: popIn 0.18s ease-out; }
+@keyframes popIn {
+  from { opacity:0; } to { opacity:1; }
+}
+.dice-popup-card {
+  background: rgba(255,255,255,0.96);
+  border-radius: 28px;
+  padding: 28px 36px 24px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+  min-width: 240px;
+}
+.dice-popup-card .popup-label {
+  font-size: 22px; color: #333; margin-bottom: 18px; font-weight: bold;
+}
+/* ボタンフェーズ */
+#dice-phase-btn { }
+.btn-roll-big {
+  background: #2d5a27; color: #fff;
+  font-size: 32px; padding: 20px 52px;
+  border-radius: 18px; border: none; cursor: pointer;
+  font-family: inherit; font-weight: bold;
+  transition: transform 0.1s, filter 0.1s;
+  box-shadow: 0 4px 16px rgba(45,90,39,0.4);
+}
+.btn-roll-big:active { transform: scale(0.95); filter: brightness(0.9); }
+/* サイコロ＋結果フェーズ */
+#dice-phase-roll { display: none; }
+.dice-popup-card .result-label {
+  font-size: 36px; font-weight: bold; color: #2d5a27;
+  margin-top: 16px; min-height: 48px;
+}
+/* ===== 3Dサイコロ ===== */
+.dice-3d-wrap {
+  perspective: 360px;
+  width: 96px; height: 96px;
+  margin: 0 auto;
+}
+.dice-cube {
+  width: 96px; height: 96px;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg) rotateY(0deg);
+  transition: transform 0.35s ease-out;
+}
+.dice-cube.rolling {
+  animation: cubeRoll 0.75s ease-in-out;
+}
+@keyframes cubeRoll {
+  0%   { transform: rotateX(0deg)   rotateY(0deg); }
+  15%  { transform: rotateX(160deg) rotateY(80deg); }
+  30%  { transform: rotateX(310deg) rotateY(200deg); }
+  45%  { transform: rotateX(470deg) rotateY(340deg); }
+  60%  { transform: rotateX(580deg) rotateY(460deg); }
+  75%  { transform: rotateX(670deg) rotateY(540deg); }
+  90%  { transform: rotateX(700deg) rotateY(570deg); }
+  100% { transform: rotateX(720deg) rotateY(576deg); }
+}
+.dice-face {
+  position: absolute;
+  width: 96px; height: 96px;
+  background: #fff;
+  border: 2.5px solid #ccc;
+  border-radius: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 10px; gap: 3px;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.08);
+  backface-visibility: hidden;
+}
+.dice-face.face-1 { transform: translateZ(48px); }
+.dice-face.face-6 { transform: rotateY(180deg) translateZ(48px); }
+.dice-face.face-2 { transform: rotateY(90deg)  translateZ(48px); }
+.dice-face.face-5 { transform: rotateY(-90deg) translateZ(48px); }
+.dice-face.face-3 { transform: rotateX(-90deg) translateZ(48px); }
+.dice-face.face-4 { transform: rotateX(90deg)  translateZ(48px); }
+.dice-face .dot {
+  border-radius: 50%;
+  background: #1a1a2e;
+  width: 16px; height: 16px;
+  margin: auto;
+}
+.dice-face span:not(.dot) { display: block; }
+.action-message { font-size: 20px; color: #333; margin-bottom: 12px; font-weight: bold; min-height: 28px; }
+
+/* ===== ボタン ===== */
+.btn {
+  display: inline-block; border: none; cursor: pointer;
+  border-radius: 16px; font-weight: bold;
+  font-family: inherit; transition: transform 0.1s, filter 0.1s;
+}
+.btn:active { transform: scale(0.96); filter: brightness(0.92); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-primary   { background: #2d5a27; color: #fff; font-size: 26px; padding: 16px 40px; }
+.btn-secondary { background: #1565c0; color: #fff; font-size: 22px; padding: 12px 28px; }
+.btn-success   { background: #2e7d32; color: #fff; font-size: 22px; padding: 12px 28px; }
+.btn-large     { font-size: 30px; padding: 20px 48px; }
+
+/* ===== モーダル ===== */
+#challenge-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55); z-index: 200;
+  align-items: center; justify-content: center; padding: 16px;
+}
+#challenge-modal.show { display: flex; }
+.modal-box {
+  background: #fff; border-radius: 24px;
+  padding: 24px 20px; max-width: 540px; width: 100%;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.28); text-align: center;
+  max-height: 92vh; overflow-y: auto;
+}
+.modal-box h3 { font-size: 26px; margin-bottom: 6px; }
+.modal-box .ch-desc { font-size: 19px; color: #555; margin-bottom: 14px; }
+
+/* タイマー */
+.timer-wrap { margin-bottom: 12px; }
+.timer-outer { background: #eee; border-radius: 8px; height: 12px; overflow: hidden; }
+.timer-fill  { background: #1976d2; height: 100%; border-radius: 8px; transition: width 1s linear; }
+.timer-label { font-size: 16px; color: #555; margin-top: 3px; }
+
+/* 言葉記憶 */
+.memory-words { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+.memory-word {
+  background: #e3f2fd; border: 2px solid #1976d2;
+  border-radius: 12px; padding: 10px 16px;
+  font-size: 28px; font-weight: bold; color: #1565c0;
+}
+.answer-buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.answer-btn {
+  border: 2px solid #1976d2; background: #fff;
+  color: #1565c0; font-size: 21px; font-weight: bold;
+  padding: 10px 16px; border-radius: 12px; cursor: pointer;
+  font-family: inherit; transition: background 0.15s;
+}
+.answer-btn:hover  { background: #e3f2fd; }
+.answer-btn.sel    { background: #bbdefb; }
+.answer-btn.correct{ background: #c8e6c9 !important; border-color: #388e3c; color: #1b5e20; }
+.answer-btn.wrong  { background: #ffcdd2 !important; border-color: #d32f2f; color: #b71c1c; }
+
+/* イラスト記憶 */
+.illust-grid {
+  display: flex; gap: 14px; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
+.illust-card {
+  background: #f3e5f5; border: 2px solid #7b1fa2;
+  border-radius: 16px; padding: 12px 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-width: 90px;
+}
+.illust-card .big-emoji { font-size: 48px; line-height: 1; }
+.illust-card .emoji-label { font-size: 14px; color: #4a148c; font-weight: bold; }
+.illust-choice-grid { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.illust-btn {
+  background: #f3e5f5; border: 2px solid #7b1fa2;
+  border-radius: 14px; padding: 10px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; font-family: inherit; transition: background 0.15s;
+  min-width: 80px;
+}
+.illust-btn .big-emoji { font-size: 38px; line-height: 1; }
+.illust-btn .emoji-label { font-size: 13px; color: #4a148c; font-weight: bold; }
+.illust-btn:hover  { background: #e1bee7; }
+.illust-btn.sel    { background: #ce93d8; border-color: #6a1b9a; }
+.illust-btn.correct{ background: #c8e6c9 !important; border-color: #388e3c; }
+.illust-btn.correct .emoji-label { color: #1b5e20; }
+.illust-btn.wrong  { background: #ffcdd2 !important; border-color: #d32f2f; }
+.illust-btn.wrong  .emoji-label { color: #b71c1c; }
+
+/* 計算 */
+.math-question { font-size: 44px; font-weight: bold; color: #c2185b; margin: 14px 0; }
+.math-choices  { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.math-btn {
+  background: #fce4ec; border: 2px solid #c2185b;
+  color: #880e4f; font-size: 28px; font-weight: bold;
+  padding: 12px 22px; border-radius: 14px; cursor: pointer;
+  font-family: inherit; min-width: 80px; transition: background 0.15s;
+}
+.math-btn:hover { background: #f8bbd0; }
+.math-btn.correct { background: #c8e6c9; border-color: #388e3c; color: #1b5e20; }
+.math-btn.wrong   { background: #ffcdd2; border-color: #d32f2f; color: #b71c1c; }
+
+/* 知識クイズ */
+.know-question { font-size: 26px; font-weight: bold; color: #1b5e20; margin: 14px 0 18px; line-height: 1.4; }
+.know-choices  { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.know-btn {
+  background: #e8f5e9; border: 2px solid #2e7d32;
+  color: #1b5e20; font-size: 22px; font-weight: bold;
+  padding: 12px 18px; border-radius: 14px; cursor: pointer;
+  font-family: inherit; min-width: 110px; transition: background 0.15s;
+}
+.know-btn:hover  { background: #c8e6c9; }
+.know-btn.correct{ background: #c8e6c9; border-color: #388e3c; color: #1b5e20; }
+.know-btn.wrong  { background: #ffcdd2; border-color: #d32f2f; color: #b71c1c; }
+
+/* フィードバック */
+.feedback { font-size: 24px; font-weight: bold; margin: 12px 0; min-height: 32px; }
+.feedback.ok { color: #2e7d32; }
+.feedback.ng { color: #c62828; }
+
+/* 休み */
+.rest-icon { font-size: 60px; margin-bottom: 10px; }
+.rest-modal h3 { font-size: 26px; margin-bottom: 8px; color: #e65100; }
+.rest-modal p  { font-size: 19px; color: #555; }
+
+/* ===== ゴール ===== */
+#screen-goal {
+  display: none; position: relative; z-index: 10;
+  min-height: 100vh; align-items: center;
+  justify-content: center; flex-direction: column;
+  padding: 40px 20px; text-align: center;
+}
+#screen-goal h1 { font-size: 48px; font-weight: bold; color: #f9a825; margin-bottom: 10px; text-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.result-card {
+  background: rgba(255,255,255,0.93);
+  border-radius: 24px; padding: 24px 32px;
+  margin-bottom: 16px; max-width: 480px; width: 100%;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+}
+.result-card p { font-size: 22px; color: #333; margin-bottom: 8px; }
+.result-card .big-score { font-size: 52px; font-weight: bold; color: #2d5a27; }
+.result-card .score-sub { font-size: 18px; color: #777; }
+.result-card .comment   { font-size: 20px; color: #333; }
+</style>
+</head>
+<body>
+
+<!-- ===== 風景背景 ===== -->
+<svg id="landscape-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#87ceeb"/>
+      <stop offset="100%" stop-color="#c9e8f5"/>
+    </linearGradient>
+    <linearGradient id="fuji" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8e8ee"/>
+      <stop offset="30%" stop-color="#c8c8d8"/>
+      <stop offset="100%" stop-color="#7a8fa6"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6ab04c"/>
+      <stop offset="100%" stop-color="#4a8a38"/>
+    </linearGradient>
+    <linearGradient id="river" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#74b9e8"/>
+      <stop offset="100%" stop-color="#4a9fd4"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <g opacity="0.85">
+    <ellipse cx="100" cy="90" rx="60" ry="28" fill="#fff"/>
+    <ellipse cx="140" cy="78" rx="45" ry="32" fill="#fff"/>
+    <ellipse cx="170" cy="90" rx="50" ry="24" fill="#fff"/>
+    <ellipse cx="60"  cy="95" rx="38" ry="20" fill="#fff"/>
+  </g>
+  <g opacity="0.8">
+    <ellipse cx="600" cy="70" rx="55" ry="24" fill="#fff"/>
+    <ellipse cx="645" cy="58" rx="42" ry="30" fill="#fff"/>
+    <ellipse cx="675" cy="70" rx="46" ry="22" fill="#fff"/>
+    <ellipse cx="565" cy="74" rx="35" ry="18" fill="#fff"/>
+  </g>
+  <g opacity="0.7">
+    <ellipse cx="370" cy="55" rx="38" ry="16" fill="#fff"/>
+    <ellipse cx="400" cy="46" rx="30" ry="22" fill="#fff"/>
+    <ellipse cx="425" cy="56" rx="32" ry="15" fill="#fff"/>
+  </g>
+  <polygon points="400,60 510,260 290,260" fill="url(#fuji)"/>
+  <polygon points="400,60 430,120 370,120" fill="white" opacity="0.9"/>
+  <polygon points="400,60 510,260 290,260" fill="none" stroke="#a0a8b8" stroke-width="1.5"/>
+  <polygon points="0,220 80,160 160,200 240,155 320,185 400,260 0,260" fill="#8faacc" opacity="0.4"/>
+  <polygon points="480,230 560,170 640,200 720,165 800,210 800,260 480,260" fill="#8faacc" opacity="0.4"/>
+  <rect x="0" y="255" width="800" height="350" fill="url(#ground)"/>
+  <path d="M0,340 Q200,320 400,350 Q600,380 800,360 L800,400 Q600,420 400,390 Q200,360 0,380 Z" fill="url(#river)" opacity="0.7"/>
+  <path d="M50,358 Q150,348 250,356" stroke="#a8d8f0" stroke-width="2" fill="none" opacity="0.6"/>
+  <path d="M500,370 Q620,358 720,368" stroke="#a8d8f0" stroke-width="2" fill="none" opacity="0.6"/>
+  <g transform="translate(660,190)">
+    <rect x="-4" y="0" width="8" height="80" fill="#c0392b" rx="3"/>
+    <rect x="34" y="0" width="8" height="80" fill="#c0392b" rx="3"/>
+    <rect x="-12" y="0" width="62" height="10" fill="#c0392b" rx="4"/>
+    <rect x="-8"  y="12" width="54" height="8" fill="#c0392b" rx="3"/>
+    <rect x="11"  y="18" width="16" height="10" fill="#c0392b"/>
+  </g>
+  <g transform="translate(80,230)">
+    <rect x="-5" y="0" width="10" height="70" fill="#7a5230"/>
+    <line x1="0" y1="10" x2="-30" y2="-10" stroke="#7a5230" stroke-width="5"/>
+    <line x1="0" y1="10" x2="28"  y2="-8"  stroke="#7a5230" stroke-width="5"/>
+    <circle cx="0"   cy="-40" r="38" fill="#f8bbd0" opacity="0.9"/>
+    <circle cx="-32" cy="-20" r="26" fill="#f48fb1" opacity="0.85"/>
+    <circle cx="30"  cy="-18" r="28" fill="#f8bbd0" opacity="0.88"/>
+    <circle cx="-10" cy="-62" r="22" fill="#fce4ec" opacity="0.9"/>
+    <circle cx="14"  cy="-58" r="20" fill="#f48fb1" opacity="0.8"/>
+  </g>
+  <g transform="translate(680,240)">
+    <rect x="-5" y="0" width="10" height="60" fill="#7a5230"/>
+    <circle cx="0"   cy="-30" r="32" fill="#f8bbd0" opacity="0.88"/>
+    <circle cx="-28" cy="-16" r="22" fill="#f48fb1" opacity="0.82"/>
+    <circle cx="26"  cy="-14" r="24" fill="#fce4ec" opacity="0.86"/>
+    <circle cx="-8"  cy="-52" r="18" fill="#f8bbd0" opacity="0.85"/>
+  </g>
+  <path d="M560,280 Q640,270 740,278 Q760,285 740,292 Q640,284 560,292 Z" fill="#4a7c3f" opacity="0.6"/>
+  <path d="M570,295 Q650,285 750,293 Q770,300 750,307 Q650,299 570,307 Z" fill="#5a8c4f" opacity="0.5"/>
+  <g transform="translate(150,275)">
+    <rect x="0" y="20" width="50" height="35" fill="#d4956a"/>
+    <polygon points="-5,20 25,-5 55,20" fill="#8b4513"/>
+    <rect x="18" y="35" width="14" height="20" fill="#5c3317"/>
+    <rect x="5"  y="28" width="12" height="10" fill="#87ceeb" opacity="0.8"/>
+  </g>
+  <g opacity="0.6">
+    <ellipse cx="200" cy="150" rx="5" ry="3" fill="#f48fb1" transform="rotate(30,200,150)"/>
+    <ellipse cx="350" cy="130" rx="4" ry="2.5" fill="#f8bbd0" transform="rotate(-20,350,130)"/>
+    <ellipse cx="500" cy="100" rx="5" ry="3" fill="#f48fb1" transform="rotate(45,500,100)"/>
+    <ellipse cx="620" cy="145" rx="4" ry="2.5" fill="#fce4ec" transform="rotate(-35,620,145)"/>
+    <ellipse cx="270" cy="190" rx="4" ry="2.5" fill="#f48fb1" transform="rotate(15,270,190)"/>
+    <ellipse cx="450" cy="170" rx="5" ry="3" fill="#f8bbd0" transform="rotate(-50,450,170)"/>
+  </g>
+  <rect x="0" y="248" width="800" height="20" fill="#b8d8c0" opacity="0.35"/>
+</svg>
+
+<!-- ===== スタート画面 ===== -->
+<div id="screen-start">
+  <div class="start-card">
+    <h1>🌸 認知症予防<br>すごろく</h1>
+    <p class="subtitle">楽しみながら脳を活性化！</p>
+    <div class="start-info" style="margin-bottom:24px;">
+      <p>🧠 言葉の記憶クイズ</p>
+      <p>🖼 絵の記憶クイズ</p>
+      <p>🔢 計算クイズ</p>
+      <p>🌿 知識クイズ</p>
+      <p style="margin-top:8px;font-size:17px;color:#777;">🎯 全100マス・約30〜40分で1ゲーム</p>
+    </div>
+    <button class="btn btn-primary btn-large" onclick="startGame()">
+      ゲームをはじめる
+    </button>
+  </div>
+</div>
+
+<!-- ===== ゲーム画面 ===== -->
+<div id="screen-game">
+  <div class="game-header">
+    <h2>🌸 認知症予防すごろく</h2>
+    <div class="turn-info" id="turn-display">第 1 ターン</div>
+  </div>
+
+  <div class="score-bar">
+    <div class="item">🧠 <strong id="word-score">0</strong></div>
+    <div class="item">🖼 <strong id="illust-score">0</strong></div>
+    <div class="item">🔢 <strong id="math-score">0</strong></div>
+    <div class="item">🌿 <strong id="know-score">0</strong></div>
+    <div class="item" style="margin-left:auto;">合計 <strong id="total-score">0</strong>/<span id="total-q">0</span></div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:4%"></div>
+    </div>
+    <div class="progress-label" id="progress-label">マス 1 / 25</div>
+  </div>
+
+  <div class="board-wrap">
+    <div class="board-inner" id="board-rows"></div>
+  </div>
+
+  <div class="action-area">
+    <div class="action-message" id="action-message">準備中…</div>
+  </div>
+</div>
+
+<!-- ===== サイコロポップアップ ===== -->
+<div id="dice-popup">
+  <div class="dice-popup-card">
+    <div class="popup-label" id="popup-label">サイコロをふってください</div>
+
+    <!-- フェーズ1: ボタン -->
+    <div id="dice-phase-btn">
+      <button class="btn-roll-big" onclick="rollDice()">🎲 ふる</button>
+    </div>
+
+    <!-- フェーズ2: 転がるサイコロ＋結果 -->
+    <div id="dice-phase-roll">
+      <div class="dice-3d-wrap">
+        <div class="dice-cube" id="dice-cube">
+          <div class="dice-face face-1" id="df1"></div>
+          <div class="dice-face face-2" id="df2"></div>
+          <div class="dice-face face-3" id="df3"></div>
+          <div class="dice-face face-4" id="df4"></div>
+          <div class="dice-face face-5" id="df5"></div>
+          <div class="dice-face face-6" id="df6"></div>
+        </div>
+      </div>
+      <div class="result-label" id="result-label"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== モーダル ===== -->
+<div id="challenge-modal">
+  <div class="modal-box" id="modal-content"></div>
+</div>
+
+<!-- ===== ゴール画面 ===== -->
+<div id="screen-goal">
+  <h1>🎉 ゴール！ 🎉</h1>
+  <p style="font-size:24px;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,0.4);margin-bottom:20px;">よくがんばりました！</p>
+  <div class="result-card">
+    <p>🎯 最終スコア</p>
+    <div class="big-score" id="score-display">0</div>
+    <div class="score-sub" id="score-label">点</div>
+  </div>
+  <div class="result-card">
+    <p>🧠 言葉の記憶：<strong id="r-word">0</strong> 問正解</p>
+    <p>🖼 絵の記憶：<strong id="r-illust">0</strong> 問正解</p>
+    <p>🔢 計算：<strong id="r-math">0</strong> 問正解</p>
+    <p>🌿 知識：<strong id="r-know">0</strong> 問正解</p>
+    <p class="comment" id="result-comment" style="margin-top:12px;"></p>
+  </div>
+  <button class="btn btn-primary btn-large" onclick="resetGame()">もう一度あそぶ</button>
+</div>
+
+<script>
+const TOTAL = 100;
+const COLS  = 10;
+
+// ===== サイコロドット定義 =====
+// 9マスグリッド上の点の位置 (0=左上 … 8=右下)
+const DOT_POS = { 1:[4], 2:[2,6], 3:[2,4,6], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+// 各面を正面に向けるための最終transform
+const FACE_ROT = {
+  1: 'rotateX(0deg) rotateY(0deg)',
+  2: 'rotateX(0deg) rotateY(-90deg)',
+  3: 'rotateX(90deg) rotateY(0deg)',
+  4: 'rotateX(-90deg) rotateY(0deg)',
+  5: 'rotateX(0deg) rotateY(90deg)',
+  6: 'rotateX(0deg) rotateY(180deg)',
+};
+
+function buildDiceFace(n) {
+  const filled = DOT_POS[n];
+  return Array.from({length:9}, (_,i) =>
+    `<span class="${filled.includes(i)?'dot':''}"></span>`
+  ).join('');
+}
+function initDice() {
+  for (let f=1; f<=6; f++) document.getElementById('df'+f).innerHTML = buildDiceFace(f);
+}
+
+// ===== マス定義（100マス・4種類均等）=====
+function generateCells() {
+  const types   = ['word','illust','math','know'];
+  // ボーナスパターン（12マスごとに1個）
+  const bonusPat = [null,null,null,null,null,'adv2',null,null,null,null,null,null,
+                    null,null,null,null,null,'adv3',null,null,null,null,null,null,
+                    null,null,'back2',null,null,null,null,null,null,null,null,null,
+                    null,null,null,'rest',null,null,null,null,null,null,null,null];
+  const cells = [{ type:'start' }];
+  for (let i = 1; i <= 98; i++) {
+    cells.push({ type: types[(i-1) % 4], bonus: bonusPat[(i-1) % bonusPat.length] });
+  }
+  cells.push({ type:'goal' });
+  return cells;
+}
+const CELLS = generateCells();
+
+const CELL_META = {
+  'word':   { cls:'ch-word',   icon:'🧠', tag:'言葉記憶' },
+  'illust': { cls:'ch-illust', icon:'🖼', tag:'絵の記憶' },
+  'math':   { cls:'ch-math',   icon:'🔢', tag:'計算'    },
+  'know':   { cls:'ch-know',   icon:'🌿', tag:'知識'    },
+};
+const BONUS_ICON = { adv2:'⬆️', adv3:'⬆️⬆️', back2:'⬇️', rest:'💤' };
+
+// ===== 言葉記憶データ =====
+const WORD_SETS = [
+  { words:['りんご','さかな','くるま'],  dist:['いぬ','ねこ','はな','かさ','うみ'] },
+  { words:['つき','はな','かさ'],        dist:['いぬ','りんご','みず','いえ','そら'] },
+  { words:['いぬ','えんぴつ','めがね'],  dist:['さかな','はな','くつ','くも','てぶくろ'] },
+  { words:['てがみ','かさ','ぼうし'],    dist:['いぬ','つき','りんご','ふね','かがみ'] },
+  { words:['ふね','やま','くも'],        dist:['かさ','いぬ','りんご','てがみ','めがね'] },
+  { words:['そら','くつ','ねこ'],        dist:['りんご','ぼうし','かさ','はな','てがみ'] },
+  { words:['でんしゃ','かわ','はし'],    dist:['くも','いぬ','かさ','そら','ふね'] },
+  { words:['とけい','まど','ゆき'],      dist:['いぬ','はな','つき','かさ','ふね'] },
+];
+
+// ===== 絵の記憶データ =====
+const ILLUST_SETS = [
+  { items:[{e:'🐶',l:'いぬ'},{e:'🌸',l:'さくら'},{e:'🍎',l:'りんご'}],
+    dist: [{e:'🐱',l:'ねこ'},{e:'🌺',l:'はな'},{e:'🍊',l:'みかん'},{e:'🐦',l:'とり'},{e:'🎸',l:'ギター'}] },
+  { items:[{e:'🚂',l:'でんしゃ'},{e:'🌙',l:'つき'},{e:'⭐',l:'ほし'}],
+    dist: [{e:'🚌',l:'バス'},{e:'🌞',l:'たいよう'},{e:'🎵',l:'おんぷ'},{e:'🎨',l:'えのぐ'},{e:'🍰',l:'ケーキ'}] },
+  { items:[{e:'🐠',l:'さかな'},{e:'🌻',l:'ひまわり'},{e:'🚗',l:'くるま'}],
+    dist: [{e:'🐸',l:'かえる'},{e:'🌹',l:'バラ'},{e:'✈️',l:'ひこうき'},{e:'🐘',l:'ぞう'},{e:'🍕',l:'ピザ'}] },
+  { items:[{e:'🏔️',l:'やま'},{e:'🌊',l:'なみ'},{e:'🦋',l:'ちょうちょ'}],
+    dist: [{e:'🌲',l:'き'},{e:'🌈',l:'にじ'},{e:'🐬',l:'イルカ'},{e:'🏠',l:'いえ'},{e:'🍄',l:'きのこ'}] },
+  { items:[{e:'🐼',l:'パンダ'},{e:'🍓',l:'いちご'},{e:'🎈',l:'ふうせん'}],
+    dist: [{e:'🐨',l:'コアラ'},{e:'🍇',l:'ぶどう'},{e:'🎁',l:'プレゼント'},{e:'🐯',l:'とら'},{e:'🍑',l:'もも'}] },
+  { items:[{e:'🌙',l:'つき'},{e:'🐓',l:'にわとり'},{e:'🎻',l:'バイオリン'}],
+    dist: [{e:'⭐',l:'ほし'},{e:'🐧',l:'ペンギン'},{e:'🎺',l:'トランペット'},{e:'🌞',l:'たいよう'},{e:'🦜',l:'おうむ'}] },
+  { items:[{e:'🍜',l:'ラーメン'},{e:'🐟',l:'さかな'},{e:'🌂',l:'かさ'}],
+    dist: [{e:'🍛',l:'カレー'},{e:'🐡',l:'ふぐ'},{e:'☂️',l:'かさ（黒）'},{e:'🍝',l:'パスタ'},{e:'🐊',l:'ワニ'}] },
+  { items:[{e:'🏯',l:'しろ'},{e:'🌸',l:'さくら'},{e:'🐠',l:'さかな'}],
+    dist: [{e:'⛩️',l:'とりい'},{e:'🌺',l:'はな'},{e:'🐙',l:'たこ'},{e:'🗼',l:'タワー'},{e:'🦑',l:'いか'}] },
+];
+
+// ===== 計算データ =====
+const MATH = [
+  { q:'3 ＋ 5 ＝ ?',  ans:8,  ch:[6,7,8,9] },
+  { q:'10 ー 4 ＝ ?', ans:6,  ch:[4,5,6,7] },
+  { q:'6 ＋ 7 ＝ ?',  ans:13, ch:[11,12,13,14] },
+  { q:'15 ー 8 ＝ ?', ans:7,  ch:[5,6,7,8] },
+  { q:'4 ＋ 9 ＝ ?',  ans:13, ch:[11,12,13,14] },
+  { q:'20 ー 7 ＝ ?', ans:13, ch:[12,13,14,15] },
+  { q:'8 ＋ 6 ＝ ?',  ans:14, ch:[12,13,14,15] },
+  { q:'17 ー 9 ＝ ?', ans:8,  ch:[6,7,8,9] },
+  { q:'5 ＋ 8 ＝ ?',  ans:13, ch:[11,12,13,14] },
+  { q:'12 ー 5 ＝ ?', ans:7,  ch:[5,6,7,8] },
+  { q:'7 ＋ 8 ＝ ?',  ans:15, ch:[13,14,15,16] },
+  { q:'18 ー 6 ＝ ?', ans:12, ch:[10,11,12,13] },
+];
+
+// ===== 知識クイズデータ =====
+const KNOW = [
+  { q:'春に咲く花といえば？',          ans:'さくら',  ch:['うめ','さくら','ひまわり','チューリップ'] },
+  { q:'1年は何か月ありますか？',        ans:'12か月',  ch:['10か月','11か月','12か月','13か月'] },
+  { q:'七夕はいつですか？',            ans:'7月7日',  ch:['6月7日','7月7日','8月7日','9月7日'] },
+  { q:'日本で一番高い山は？',          ans:'富士山',  ch:['北岳','槍ヶ岳','富士山','白山'] },
+  { q:'お正月に飲む飲み物といえば？',   ans:'おとそ',  ch:['ビール','おとそ','コーヒー','緑茶'] },
+  { q:'七福神の中で女の神様は？',       ans:'弁財天',  ch:['大黒天','毘沙門天','弁財天','布袋'] },
+  { q:'ひなまつりはいつですか？',       ans:'3月3日',  ch:['2月3日','3月3日','4月3日','5月3日'] },
+  { q:'「春はあけぼの」は誰の作品？',   ans:'清少納言', ch:['紫式部','清少納言','松尾芭蕉','与謝野晶子'] },
+  { q:'日本の国鳥は何ですか？',        ans:'キジ',    ch:['タンチョウ','ウグイス','キジ','カラス'] },
+  { q:'お月見で飾るのは何？',          ans:'すすき',  ch:['さくら','すすき','あじさい','もみじ'] },
+  { q:'節分で鬼を追い払うものは？',     ans:'いわし',  ch:['にんにく','いわし','たまねぎ','しょうが'] },
+  { q:'100から3を引くといくつ？',      ans:'97',      ch:['96','97','98','99'] },
+];
+
+let S = {};
+function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
+
+// ===== ボード描画（10列×10行）=====
+function buildBoard() {
+  const wrap = document.getElementById('board-rows');
+  wrap.innerHTML = '';
+  const rows = Math.ceil(TOTAL / COLS);
+  let currentEl = null;
+  for (let r=0; r<rows; r++) {
+    const row = document.createElement('div');
+    row.className = 'board-row';
+    for (let c=0; c<COLS; c++) {
+      const i = r%2===0 ? r*COLS+c : r*COLS+(COLS-1-c);
+      if (i >= TOTAL) { row.appendChild(document.createElement('div')); continue; }
+      const cell = CELLS[i];
+      const div  = document.createElement('div');
+      const cur  = i === S.pos;
+      let cls = 'cell ';
+      if (i===0)          cls += 'start-cell';
+      else if (i===TOTAL-1) cls += 'goal-cell';
+      else { cls += CELL_META[cell.type].cls; }
+      if (cell.bonus) cls += ' bonus-'+cell.bonus.replace(/\d/g,'');
+      if (cur) { cls += ' current'; currentEl = div; }
+      div.className = cls;
+
+      let icon='', tag='';
+      if (i===0)          { icon='🌸'; tag='スタート'; }
+      else if (i===TOTAL-1){ icon='🏆'; tag='ゴール！'; }
+      else { const m=CELL_META[cell.type]; icon=m.icon; tag=m.tag; }
+
+      const badge = cell.bonus ? `<span class="bonus-badge">${BONUS_ICON[cell.bonus]}</span>` : '';
+      const token = cur ? '<span class="token">🧑</span>' : '';
+      div.innerHTML = `${badge}${token}<span class="cell-icon">${icon}</span><span class="cell-tag">${tag}</span><span class="cell-num">${i+1}</span>`;
+      row.appendChild(div);
+    }
+    wrap.appendChild(row);
+  }
+  if (currentEl) {
+    setTimeout(() => currentEl.scrollIntoView({ behavior:'smooth', block:'center', inline:'center' }), 100);
+  }
+}
+
+function updateHUD() {
+  const tot = S.wordScore+S.illustScore+S.mathScore+S.knowScore;
+  document.getElementById('progress-fill').style.width = Math.max(4,Math.round(S.pos/(TOTAL-1)*100))+'%';
+  document.getElementById('progress-label').textContent = `マス ${S.pos+1} / ${TOTAL}`;
+  document.getElementById('turn-display').textContent   = `第 ${S.turn} ターン`;
+  document.getElementById('word-score').textContent   = S.wordScore;
+  document.getElementById('illust-score').textContent = S.illustScore;
+  document.getElementById('math-score').textContent   = S.mathScore;
+  document.getElementById('know-score').textContent   = S.knowScore;
+  document.getElementById('total-score').textContent  = tot;
+  document.getElementById('total-q').textContent      = S.totalQ;
+}
+
+// ===== サイコロポップアップ制御 =====
+function showDicePopup(label) {
+  document.getElementById('popup-label').textContent = label || 'サイコロをふってください';
+  document.getElementById('dice-phase-btn').style.display  = '';
+  document.getElementById('dice-phase-roll').style.display = 'none';
+  document.getElementById('result-label').textContent = '';
+  document.getElementById('dice-popup').classList.add('show');
+}
+function hideDicePopup() {
+  document.getElementById('dice-popup').classList.remove('show');
+}
+
+// ===== サイコロを振る =====
+const ROLL_MS = 800;
+
+function rollDice() {
+  if (S.rolling) return;
+  S.rolling = true;
+
+  document.getElementById('popup-label').textContent = 'ふっています…';
+  document.getElementById('result-label').textContent = '';
+
+  // ボタンを隠してサイコロを表示
+  const phaseBtn  = document.getElementById('dice-phase-btn');
+  const phaseRoll = document.getElementById('dice-phase-roll');
+  phaseBtn.style.display  = 'none';
+  phaseRoll.style.display = 'block';
+
+  const cube = document.getElementById('dice-cube');
+  const v    = Math.floor(Math.random()*6)+1;
+
+  // display 切り替え後に2フレーム待ってからアニメーション開始
+  cube.style.transition = 'none';
+  cube.style.transform  = 'rotateX(0deg) rotateY(0deg)';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      cube.classList.add('rolling');
+    });
+  });
+
+  // アニメ終了後（ROLL_MS）に出た目を確定
+  setTimeout(() => {
+    cube.classList.remove('rolling');
+    cube.style.transition = 'none';
+    cube.style.transform  = 'rotateX(0deg) rotateY(0deg)';
+    void cube.offsetWidth;
+    cube.style.transition = 'transform 0.35s ease-out';
+    cube.style.transform  = FACE_ROT[v];
+  }, ROLL_MS);
+
+  // 結果テキストを表示
+  setTimeout(() => {
+    document.getElementById('popup-label').textContent    = '出た目は…';
+    document.getElementById('result-label').textContent   = `${v}`;
+    document.getElementById('action-message').textContent = `${v} マス進みます！`;
+  }, ROLL_MS + 400);
+
+  // ポップアップを閉じて駒を動かす
+  setTimeout(() => {
+    hideDicePopup();
+    stepMove(v);
+  }, ROLL_MS + 1400);
+}
+
+function stepMove(steps) {
+  if (S.skipNext) {
+    S.skipNext=false; S.turn++; S.rolling=false;
+    document.getElementById('action-message').textContent='1回休みでした';
+    showDicePopup(`💤 1回お休み　次のターンをどうぞ`);
+    return;
+  }
+  const target=Math.min(S.pos+steps,TOTAL-1);
+  document.getElementById('action-message').textContent=`${steps} マス進みます！`;
+  let cur=S.pos;
+  const iv=setInterval(()=>{
+    cur++; S.pos=cur; buildBoard(); updateHUD();
+    if(cur>=target){ clearInterval(iv); setTimeout(landOn,400); }
+  },300);
+}
+
+function landOn() {
+  if (S.pos===TOTAL-1) { showGoal(); return; }
+  const t=CELLS[S.pos].type;
+  if      (t==='word')   showWordMemory();
+  else if (t==='illust') showIllustMemory();
+  else if (t==='math')   showMath();
+  else if (t==='know')   showKnow();
+  else nextTurn();
+}
+
+function afterChallenge() {
+  const cell=CELLS[S.pos];
+  if (!cell.bonus) { nextTurn(); return; }
+  const box=document.getElementById('modal-content');
+  const modal=document.getElementById('challenge-modal');
+  if (cell.bonus==='rest') {
+    box.innerHTML=`<div class="rest-modal">
+      <div class="rest-icon">💤</div>
+      <h3>1回 お休み</h3>
+      <p>次のターンはお休みです。<br>ゆっくり深呼吸しましょう。</p>
+      <button class="btn btn-secondary" style="margin-top:18px" onclick="applyBonus()">わかりました</button>
+    </div>`;
+    S.skipNext=true; modal.classList.add('show');
+  } else {
+    const n=cell.bonus==='adv3'?3:cell.bonus==='adv2'?2:-2;
+    const msg=n>0?`🎉 ボーナス！ ${n}マス進みます！`:`😢 ${Math.abs(n)}マス戻ります…`;
+    box.innerHTML=`<div style="padding:8px 0">
+      <div style="font-size:52px;margin-bottom:10px">${n>0?'🎉':'😢'}</div>
+      <h3 style="font-size:26px;margin-bottom:8px">${msg}</h3>
+      <p style="font-size:18px;color:#555;margin-bottom:18px">チャレンジのごほうびです！</p>
+      <button class="btn btn-success" onclick="applyBonus()">進む</button>
+    </div>`;
+    window._bonusN=n; modal.classList.add('show');
+  }
+}
+
+window.applyBonus=function(){
+  document.getElementById('challenge-modal').classList.remove('show');
+  const cell=CELLS[S.pos];
+  if (cell.bonus==='rest'){ nextTurn(); return; }
+  S.pos=Math.max(0,Math.min(TOTAL-1,S.pos+(window._bonusN||0)));
+  buildBoard(); updateHUD();
+  if (S.pos===TOTAL-1){ showGoal(); return; }
+  nextTurn();
+};
+
+function nextTurn(){
+  S.turn++; S.rolling=false;
+  document.getElementById('action-message').textContent='サイコロをふってください';
+  showDicePopup(`第 ${S.turn} ターン　サイコロをふってください`);
+}
+
+// ===== 言葉の記憶 =====
+function showWordMemory() {
+  const set=WORD_SETS[S.wordIdx%WORD_SETS.length]; S.wordIdx++; S.totalQ++;
+  const modal=document.getElementById('challenge-modal');
+  const box=document.getElementById('modal-content');
+  let sec=5;
+  function renderShow(){
+    box.innerHTML=`
+      <h3>🧠 言葉の記憶クイズ</h3>
+      <p class="ch-desc">下の言葉を覚えてください</p>
+      <div class="timer-wrap">
+        <div class="timer-outer"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+        <div class="timer-label" id="tl">${sec}秒</div>
+      </div>
+      <div class="memory-words">${set.words.map(w=>`<div class="memory-word">${w}</div>`).join('')}</div>
+      <p style="font-size:15px;color:#999;margin-top:6px">時間が来たら答えてもらいます</p>`;
+    const iv=setInterval(()=>{
+      sec--;
+      const tf=document.getElementById('tf'), tl=document.getElementById('tl');
+      if(tf) tf.style.width=(sec/5*100)+'%';
+      if(tl) tl.textContent=sec+'秒';
+      if(sec<=0){ clearInterval(iv); renderAnswer(); }
+    },1000);
+  }
+  function renderAnswer(){
+    const choices=shuffle([...set.words,...shuffle(set.dist).slice(0,6-set.words.length)]);
+    window._memWords=set.words; window._memSel=[];
+    box.innerHTML=`
+      <h3>🧠 言葉の記憶クイズ</h3>
+      <p class="ch-desc">覚えていた言葉を全部選んでください（${set.words.length}つ）</p>
+      <div class="answer-buttons" id="abtn">
+        ${choices.map(w=>`<button class="answer-btn" onclick="toggleWord(this,'${w}')">${w}</button>`).join('')}
+      </div>
+      <div class="feedback" id="fb"></div><div id="ca"></div>`;
+  }
+  modal.classList.add('show'); renderShow();
+}
+
+window.toggleWord=function(btn,w){
+  if(btn.classList.contains('correct')||btn.classList.contains('wrong')) return;
+  const sel=window._memSel;
+  if(sel.includes(w)){ sel.splice(sel.indexOf(w),1); btn.classList.remove('sel'); }
+  else { sel.push(w); btn.classList.add('sel'); }
+  document.getElementById('ca').innerHTML=
+    sel.length===window._memWords.length
+      ? `<button class="btn btn-secondary" style="margin-top:10px" onclick="checkWord()">答え合わせ</button>` : '';
+};
+
+window.checkWord=function(){
+  const sel=window._memSel, cor=window._memWords;
+  document.querySelectorAll('.answer-btn').forEach(b=>{
+    const w=b.textContent;
+    if(cor.includes(w)) b.className='answer-btn correct';
+    else if(sel.includes(w)) b.className='answer-btn wrong';
+  });
+  const ok=sel.length===cor.length&&sel.every(w=>cor.includes(w));
+  const fb=document.getElementById('fb');
+  fb.className='feedback '+(ok?'ok':'ng');
+  fb.textContent=ok?'🎉 すばらしい！ 全問正解！':`正解は「${cor.join('・')}」でした`;
+  if(ok) S.wordScore++;
+  updateHUD();
+  document.getElementById('ca').innerHTML=`<button class="btn btn-success" style="margin-top:12px" onclick="closeModal()">次へ進む</button>`;
+};
+
+// ===== 絵の記憶 =====
+function showIllustMemory() {
+  const set=ILLUST_SETS[S.illustIdx%ILLUST_SETS.length]; S.illustIdx++; S.totalQ++;
+  const modal=document.getElementById('challenge-modal');
+  const box=document.getElementById('modal-content');
+  let sec=6;
+  function renderShow(){
+    box.innerHTML=`
+      <h3>🖼 絵の記憶クイズ</h3>
+      <p class="ch-desc">下の絵を覚えてください</p>
+      <div class="timer-wrap">
+        <div class="timer-outer"><div class="timer-fill" id="tf" style="width:100%;background:#7b1fa2"></div></div>
+        <div class="timer-label" id="tl">${sec}秒</div>
+      </div>
+      <div class="illust-grid">
+        ${set.items.map(it=>`
+          <div class="illust-card">
+            <span class="big-emoji">${it.e}</span>
+            <span class="emoji-label">${it.l}</span>
+          </div>`).join('')}
+      </div>
+      <p style="font-size:15px;color:#999;margin-top:6px">時間が来たら答えてもらいます</p>`;
+    const iv=setInterval(()=>{
+      sec--;
+      const tf=document.getElementById('tf'), tl=document.getElementById('tl');
+      if(tf) tf.style.width=(sec/6*100)+'%';
+      if(tl) tl.textContent=sec+'秒';
+      if(sec<=0){ clearInterval(iv); renderAnswer(); }
+    },1000);
+  }
+  function renderAnswer(){
+    const correctKeys=set.items.map(it=>it.l);
+    const allItems=shuffle([...set.items,...shuffle(set.dist).slice(0,6-set.items.length)]);
+    window._illustCor=correctKeys; window._illustSel=[];
+    box.innerHTML=`
+      <h3>🖼 絵の記憶クイズ</h3>
+      <p class="ch-desc">さっき見た絵を全部選んでください（${set.items.length}つ）</p>
+      <div class="illust-choice-grid" id="igrid">
+        ${allItems.map(it=>`
+          <button class="illust-btn" onclick="toggleIllust(this,'${it.l}')">
+            <span class="big-emoji">${it.e}</span>
+            <span class="emoji-label">${it.l}</span>
+          </button>`).join('')}
+      </div>
+      <div class="feedback" id="fb"></div><div id="ca"></div>`;
+  }
+  modal.classList.add('show'); renderShow();
+}
+
+window.toggleIllust=function(btn,label){
+  if(btn.classList.contains('correct')||btn.classList.contains('wrong')) return;
+  const sel=window._illustSel;
+  if(sel.includes(label)){ sel.splice(sel.indexOf(label),1); btn.classList.remove('sel'); }
+  else { sel.push(label); btn.classList.add('sel'); }
+  document.getElementById('ca').innerHTML=
+    sel.length===window._illustCor.length
+      ? `<button class="btn btn-secondary" style="margin-top:10px" onclick="checkIllust()">答え合わせ</button>` : '';
+};
+
+window.checkIllust=function(){
+  const sel=window._illustSel, cor=window._illustCor;
+  document.querySelectorAll('.illust-btn').forEach(b=>{
+    const lbl=b.querySelector('.emoji-label').textContent;
+    if(cor.includes(lbl)) b.className='illust-btn correct';
+    else if(sel.includes(lbl)) b.className='illust-btn wrong';
+  });
+  const ok=sel.length===cor.length&&sel.every(l=>cor.includes(l));
+  const fb=document.getElementById('fb');
+  fb.className='feedback '+(ok?'ok':'ng');
+  fb.textContent=ok?'🎉 すばらしい！ 全問正解！':`正解は「${cor.join('・')}」でした`;
+  if(ok) S.illustScore++;
+  updateHUD();
+  document.getElementById('ca').innerHTML=`<button class="btn btn-success" style="margin-top:12px" onclick="closeModal()">次へ進む</button>`;
+};
+
+// ===== 計算 =====
+function showMath(){
+  const prob=MATH[S.mathIdx%MATH.length]; S.mathIdx++; S.totalQ++;
+  const box=document.getElementById('modal-content');
+  box.innerHTML=`
+    <h3>🔢 計算クイズ</h3>
+    <p class="ch-desc">答えを選んでください</p>
+    <div class="math-question">${prob.q}</div>
+    <div class="math-choices">
+      ${shuffle(prob.ch).map(c=>`<button class="math-btn" onclick="checkMath(this,${c},${prob.ans})">${c}</button>`).join('')}
+    </div>
+    <div class="feedback" id="fb"></div><div id="ca"></div>`;
+  document.getElementById('challenge-modal').classList.add('show');
+}
+
+window.checkMath=function(btn,chosen,ans){
+  document.querySelectorAll('.math-btn').forEach(b=>b.disabled=true);
+  const ok=chosen===ans;
+  btn.className='math-btn '+(ok?'correct':'wrong');
+  if(!ok) document.querySelectorAll('.math-btn').forEach(b=>{ if(+b.textContent===ans) b.className='math-btn correct'; });
+  const fb=document.getElementById('fb');
+  fb.className='feedback '+(ok?'ok':'ng');
+  fb.textContent=ok?'🎉 正解！ すばらしい！':`正解は ${ans} でした`;
+  if(ok) S.mathScore++;
+  updateHUD();
+  document.getElementById('ca').innerHTML=`<button class="btn btn-success" style="margin-top:14px" onclick="closeModal()">次へ進む</button>`;
+};
+
+// ===== 知識クイズ =====
+function showKnow(){
+  const prob=KNOW[S.knowIdx%KNOW.length]; S.knowIdx++; S.totalQ++;
+  const box=document.getElementById('modal-content');
+  box.innerHTML=`
+    <h3>🌿 知識クイズ</h3>
+    <p class="ch-desc">正しいものを選んでください</p>
+    <div class="know-question">${prob.q}</div>
+    <div class="know-choices">
+      ${shuffle(prob.ch).map(c=>`<button class="know-btn" onclick="checkKnow(this,'${c}','${prob.ans}')">${c}</button>`).join('')}
+    </div>
+    <div class="feedback" id="fb"></div><div id="ca"></div>`;
+  document.getElementById('challenge-modal').classList.add('show');
+}
+
+window.checkKnow=function(btn,chosen,ans){
+  document.querySelectorAll('.know-btn').forEach(b=>b.disabled=true);
+  const ok=chosen===ans;
+  btn.className='know-btn '+(ok?'correct':'wrong');
+  if(!ok) document.querySelectorAll('.know-btn').forEach(b=>{ if(b.textContent===ans) b.className='know-btn correct'; });
+  const fb=document.getElementById('fb');
+  fb.className='feedback '+(ok?'ok':'ng');
+  fb.textContent=ok?'🎉 正解！ すばらしい！':`正解は「${ans}」でした`;
+  if(ok) S.knowScore++;
+  updateHUD();
+  document.getElementById('ca').innerHTML=`<button class="btn btn-success" style="margin-top:14px" onclick="closeModal()">次へ進む</button>`;
+};
+
+window.closeModal=function(){
+  document.getElementById('challenge-modal').classList.remove('show');
+  afterChallenge();
+};
+
+// ===== ゴール =====
+function showGoal(){
+  document.getElementById('screen-game').style.display='none';
+  const g=document.getElementById('screen-goal');
+  g.style.display='flex';
+  const tot=S.wordScore+S.illustScore+S.mathScore+S.knowScore;
+  document.getElementById('score-display').textContent=tot;
+  document.getElementById('score-label').textContent=`点 / ${S.totalQ}問中`;
+  document.getElementById('r-word').textContent=S.wordScore;
+  document.getElementById('r-illust').textContent=S.illustScore;
+  document.getElementById('r-math').textContent=S.mathScore;
+  document.getElementById('r-know').textContent=S.knowScore;
+  const pct=S.totalQ>0?tot/S.totalQ:0;
+  document.getElementById('result-comment').textContent=
+    pct===1?'🏆 パーフェクト！すごいです！':
+    pct>=0.7?'🌟 よくできました！また挑戦してみてください！':
+    pct>=0.4?'👍 がんばりました！次はもっとできます！':
+    '😊 挑戦してくれてありがとう！また一緒にやりましょう！';
+}
+
+// ===== ゲーム管理 =====
+function startGame(){
+  document.getElementById('screen-start').style.display='none';
+  document.getElementById('screen-game').style.display='block';
+  S={pos:0,turn:1,wordScore:0,illustScore:0,mathScore:0,knowScore:0,
+     totalQ:0,rolling:false,skipNext:false,
+     wordIdx:0,illustIdx:0,mathIdx:0,knowIdx:0};
+  initDice();
+  const cube=document.getElementById('dice-cube');
+  cube.style.transition='none';
+  cube.style.transform=FACE_ROT[1];
+  buildBoard(); updateHUD();
+  showDicePopup('第 1 ターン　サイコロをふってください');
+}
+
+function resetGame(){
+  document.getElementById('screen-goal').style.display='none';
+  document.getElementById('screen-start').style.display='flex';
+}
+</script>
+</body>
+</html>
